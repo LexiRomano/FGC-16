@@ -1,0 +1,9 @@
+# 0x0000 0x0000
+STA @0x6004
+
+LDA @0x8000
+DEA
+JNE term
+JMP @0x8000
+:term
+SHD
