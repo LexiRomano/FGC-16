@@ -8,11 +8,13 @@ int main() {
 	printf("**At any point, enter an invalid character to exit the program**\n\n");
 	printf("  What file would you like to edit? (r, 0, 1 ... e, f)\n\n->");
 	char file;
+	fflush(stdout);
+	fflush(stdin);
 	scanf("%c", &file);
 	if (file == 'r') {
 		//rom
 		binInfo();
-		FILE* f = fopen("./data/r.rom", "wb");
+		FILE* f = fopen(".\\data\\r.rom", "wb");
 		int buffer;
 		unsigned char c;
 		while (scanf("%x", &buffer) != 0) {
@@ -23,6 +25,7 @@ int main() {
 			} else {
 				printf("  number ignored, out of range\n->");
 			}
+			fflush(stdout);
 		}
 
 		fclose(f);
@@ -32,7 +35,7 @@ int main() {
 		char diskIdChar[1];
 		char path[50];
 		sprintf(diskIdChar, "%c", file);
-		strcpy(path, "./data/");
+		strcpy(path, ".\\data\\");
 		strcat(path, diskIdChar);
 		strcat(path, ".dsk");
 
@@ -40,6 +43,7 @@ int main() {
 				"  Format:         x\n"
 				"  Rewrite sector: 0, 1 ... e, f\n\n->", file);
 
+		fflush(stdout);
 		fflush(stdin);
 		char sector;
 		scanf("%c", &sector);
@@ -52,6 +56,7 @@ int main() {
 			}
 
 			printf("\n  Disk formatting complete!\n");
+			fflush(stdout);
 		} else if ((sector >= 48 && sector <= 57) || (sector >= 97 && sector <= 102)) {
 			//      0-9                           a-f
 			//sector
@@ -78,6 +83,7 @@ int main() {
 					} else {
 						printf("  number ignored, out of range\n->");
 					}
+					fflush(stdout);
 				} else {
 					//invalid, exit
 					invalidBreak = 1;
@@ -85,6 +91,7 @@ int main() {
 			}
 			if (!invalidBreak) {
 				printf("\n\n  Sector size limit reached\n");
+				fflush(stdout);
 				fflush(stdin);
 			}
 		}
@@ -102,6 +109,7 @@ int main() {
 int binInfo() {
 	printf("\n  Binary writer: input hexadecimal numbers (lowercase, no leading 0x, from 00 to FF)\n");
 	printf("  Enter a non-hex letter to exit\n\n->");
+	fflush(stdout);
 	return 0;
 }
 

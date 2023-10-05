@@ -139,7 +139,7 @@ int main() {
 	unsigned char buffer;
 
 	// Reading ROM
-	FILE* romFile = fopen("./data/r.rom", "rb");
+	FILE* romFile = fopen(".\\data\\r.rom", "rb");
 
 	unsigned char i, j = 0x00;
 	int count = 0;
@@ -758,7 +758,7 @@ int store(unsigned char origin, unsigned char a, unsigned char b, int permission
 			char diskIdChar[50], path[50];
 
 			sprintf(diskIdChar, "%01x", diskId);
-			strcpy(path, "./data/");
+			strcpy(path, ".\\data\\");
 			strcat(path, diskIdChar);
 			strcat(path, ".dsk");
 
