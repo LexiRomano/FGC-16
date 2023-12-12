@@ -848,7 +848,10 @@ int store(unsigned char origin, unsigned char a, unsigned char b, int permission
 			break;
 		case 0x03:
 			if (origin == 0x01) {
-				//Write
+				//Read
+				for (int i = 0; i < 0x100; i++) {
+					ioBuffer[i] = 0;
+				}
 				scanf("%[^\n]", ioBuffer);
 				ioBufferPt = 0x00;
 				fflush(stdin);
