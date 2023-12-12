@@ -1017,7 +1017,7 @@ int saveToStack() {
 
 unsigned char relativeAddressA(unsigned char a, unsigned char b) {
 	// relativeAddressB() < adrB returns 1 when the B byte overflows
-	return a + ((rel & 0b00000001) * (relativeAddressB(b) < b)+ comA);
+	return a + ((rel & 0b00000001) * ((relativeAddressB(b) < b) + comA));
 }
 
 unsigned char relativeAddressB(unsigned char b) {
@@ -1026,7 +1026,7 @@ unsigned char relativeAddressB(unsigned char b) {
 
 unsigned char relativeAddressAP(unsigned char a, unsigned char b, unsigned char orgA, unsigned char orgB) {
 	// relativeAddressB() < adrB returns 1 when the B byte overflows
-	return a + (((rel & 0b00000010) >> 1) * (relativeAddressBP(b, orgB) < b)+ orgA);
+	return a + (((rel & 0b00000010) >> 1) * ((relativeAddressBP(b, orgB) < b) + orgA));
 }
 
 unsigned char relativeAddressBP(unsigned char b, unsigned char orgB) {
