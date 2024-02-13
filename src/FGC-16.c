@@ -10,11 +10,13 @@
 #define LDA_X   0x42
 #define LDA_LOX 0x62
 #define LDA_P   0x82
+#define LDA_PNP 0xA2
 
 #define STA     0x23
 #define STA_X   0x43
 #define STA_LOX 0x63
 #define STA_P   0x83
+#define STA_PNP 0xA3
 
 #define LDX_IM  0x04
 #define LDX     0x24
@@ -235,6 +237,26 @@ int main() {
 			LOAD(&a, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
 			break;
 
+		case LDA_PNP:
+
+			LOADADR();
+
+			tmpC = relativeAddressA(adrA, adrB);
+			tmpD = relativeAddressB(adrB);
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+
+			adrA = tmpA;
+			LOAD(&tmpA, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+			plus(adrA, adrB, 0, tmpA, &adrA, &adrB);
+
+			LOAD(&a, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+			break;
+
 		case STA:
 			LOADADR();
 			STORE(a, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
@@ -263,6 +285,24 @@ int main() {
 			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
 
 			adrA = tmpA;
+			STORE(a, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+			break;
+		case STA_PNP:
+			LOADADR();
+
+			tmpC = relativeAddressA(adrA, adrB);
+			tmpD = relativeAddressB(adrB);
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+
+			adrA = tmpA;
+			LOAD(&tmpA, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+			plus(adrA, adrB, 0, tmpA, &adrA, &adrB);
+
 			STORE(a, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
 			break;
 
