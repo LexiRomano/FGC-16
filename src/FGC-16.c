@@ -456,7 +456,7 @@ int main() {
 
 			adrA = tmpA;
 			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
-			add(&tmpA);
+			sub(&tmpA);
 			break;
 
 		case BLT:
