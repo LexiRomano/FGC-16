@@ -32,12 +32,14 @@
 #define ADD_X   0x4C
 #define ADD_LOX 0x6C
 #define ADD_P   0x8C
+#define ADD_PNP 0xAC
 
 #define SUB_IM  0x0D
 #define SUB_LOC 0x2D
 #define SUB_X   0x4D
 #define SUB_LOX 0x6D
 #define SUB_P   0x8D
+#define SUB_PNP 0xAD
 
 #define BLT     0x0E
 #define BLC     0x1E
@@ -49,16 +51,19 @@
 #define AND_X   0x58
 #define AND_LOX 0x78
 #define AND_P   0x98
+#define AND_PNP 0xB8
 #define ORR_IM  0x19
 #define ORR_LOC 0x39
 #define ORR_X   0x59
 #define ORR_LOX 0x79
 #define ORR_P   0x99
+#define ORR_PNP 0xB9
 #define XOR_IM  0x1A
 #define XOR_LOC 0x3A
 #define XOR_X   0x5A
 #define XOR_LOX 0x7A
 #define XOR_P   0x9A
+#define XOR_PNP 0xBA
 #define NOT     0x1B
 
 #define JMP_LOC 0x30
@@ -138,7 +143,10 @@ int jumpLOC();
 int jumpPT();
 int saveToStack();
 
-void debug();
+#ifdef DEBUG_MODE
+	void debug();
+#endif
+
 // Flags register: X, X, X, X, OVF, POS, ZER, NEG
 // Relative register: X, X, X, X, X, X, REP, REL
 unsigned char a, xA, xB, ptA, ptB, ins, adrA, adrB, flg, stA, stB, tmpA, tmpB, tmpC, tmpD,
@@ -416,6 +424,26 @@ int main() {
 			add(&tmpA);
 			break;
 
+		case ADD_PNP:
+			LOADADR();
+
+			tmpC = relativeAddressA(adrA, adrB);
+			tmpD = relativeAddressB(adrB);
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+
+			adrA = tmpA;
+			LOAD(&tmpA, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+			plus(adrA, adrB, 0, tmpA, &adrA, &adrB);
+
+			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+			add(&tmpA);
+			break;
+
 		case SUB_IM:
 			LOAD(&tmpA, ptA, ptB, PROG);
 			inc(&ptA, &ptB);
@@ -455,6 +483,26 @@ int main() {
 			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
 
 			adrA = tmpA;
+			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+			sub(&tmpA);
+			break;
+
+		case SUB_PNP:
+			LOADADR();
+
+			tmpC = relativeAddressA(adrA, adrB);
+			tmpD = relativeAddressB(adrB);
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+
+			adrA = tmpA;
+			LOAD(&tmpA, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+			plus(adrA, adrB, 0, tmpA, &adrA, &adrB);
+
 			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
 			sub(&tmpA);
 			break;
@@ -550,6 +598,30 @@ int main() {
 			}
 			break;
 
+		case AND_PNP:
+			LOADADR();
+
+			tmpC = relativeAddressA(adrA, adrB);
+			tmpD = relativeAddressB(adrB);
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+
+			adrA = tmpA;
+			LOAD(&tmpA, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+			plus(adrA, adrB, 0, tmpA, &adrA, &adrB);
+
+			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+			a = a & tmpA;
+			flg = 0x04;
+			if (a == 0) {
+				flg = 0x02;
+			}
+			break;
+
 		case ORR_IM:
 			LOAD(&tmpA, ptA, ptB, PROG);
 			inc(&ptA, &ptB);
@@ -615,6 +687,30 @@ int main() {
 			}
 			break;
 
+		case ORR_PNP:
+			LOADADR();
+
+			tmpC = relativeAddressA(adrA, adrB);
+			tmpD = relativeAddressB(adrB);
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+
+			adrA = tmpA;
+			LOAD(&tmpA, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+			plus(adrA, adrB, 0, tmpA, &adrA, &adrB);
+
+			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+			a = a | tmpA;
+			flg = 0x04;
+			if (a == 0) {
+				flg = 0x02;
+			}
+			break;
+
 		case XOR_IM:
 			LOAD(&tmpA, ptA, ptB, PROG);
 			inc(&ptA, &ptB);
@@ -672,6 +768,30 @@ int main() {
 			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
 
 			adrA = tmpA;
+			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+			a = a ^ tmpA;
+			flg = 0x04;
+			if (a == 0) {
+				flg = 0x02;
+			}
+			break;
+
+		case XOR_PNP:
+			LOADADR();
+
+			tmpC = relativeAddressA(adrA, adrB);
+			tmpD = relativeAddressB(adrB);
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+
+			adrA = tmpA;
+			LOAD(&tmpA, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+			plus(adrA, adrB, 0, tmpA, &adrA, &adrB);
+
 			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
 			a = a ^ tmpA;
 			flg = 0x04;
@@ -801,7 +921,9 @@ int main() {
 		if (ins != REP && ins != REL) {
 			rel = 0;
 		}
-		if (go) debug();
+		#ifdef DEBUG_MODE
+			if (go) debug();
+		#endif
 	}
 
 	if (error[0] != '\0') {
@@ -1076,19 +1198,20 @@ unsigned char relativeAddressBP(unsigned char b, unsigned char orgB) {
 	return b + ((rel & 0b00000010) >> 1) * orgB;
 }
 
-void debug() {
-	printf("\n  A:   0x%02x", (unsigned int) a);
-	printf("\n  X:   0x%02x%02x", (unsigned int) xA, (unsigned int) xB);
-	printf("\n  flg: 0x%02x", (unsigned int) flg);
-	printf("\n  pt:  0x%02x%02x", (unsigned int) ptA, (unsigned int) ptB);
-	printf("\n  ins: 0x%02x", (unsigned int) ins);
-	printf("\n  adr: 0x%02x%02x", (unsigned int) adrA, (unsigned int) adrB);
-	printf("\n  rel: 0x%02x", (unsigned int) rel);
-	fflush(stdout);
-	char z;
-	scanf("%c", &z);
-}
-
+#ifdef DEBUG_MODE
+	void debug() {
+		printf("\n  A:   0x%02x", (unsigned int) a);
+		printf("\n  X:   0x%02x%02x", (unsigned int) xA, (unsigned int) xB);
+		printf("\n  flg: 0x%02x", (unsigned int) flg);
+		printf("\n  pt:  0x%02x%02x", (unsigned int) ptA, (unsigned int) ptB);
+		printf("\n  ins: 0x%02x", (unsigned int) ins);
+		printf("\n  adr: 0x%02x%02x", (unsigned int) adrA, (unsigned int) adrB);
+		printf("\n  rel: 0x%02x", (unsigned int) rel);
+		fflush(stdout);
+		char z;
+		scanf("%c", &z);
+	}
+#endif
 
 
 
