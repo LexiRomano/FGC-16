@@ -164,37 +164,52 @@ int main() {
 	FILE* romFile = fopen(".\\data\\r.rom", "rb");
 
 	unsigned char i, j = 0x00;
-	int count = 0;
+	#ifdef DEBUG_MODE
+		int count = 0;
+		int lastNonZero = 0;
+	#endif
 	while (fread(&buffer , 1, 1, romFile) != 0) {
 		rom[j][i] = buffer;
 		i++;
 		if (i == 0) {
 			j++;
 		}
-		count++;
+		#ifdef DEBUG_MODE
+			count++;
+			if (buffer != 0) {
+				lastNonZero = count;
+			}
+		#endif
 	}
 
 	fclose(romFile);
 
 	// Printing ROM
-	printf("\nSuccesfully read from ROM, contents:\n");
-	i = 0x00;
-	j = 0x00;
-	while (count > 0) {
-		if (i % 0x10 == 0) {
-			printf("\n");
-		}
-		printf("%02x ", rom[j][i]);
-		i++;
-		if (i == 0) {
-			j++;
-		}
-		count--;
-	}
+	#ifdef DEBUG_MODE
+		printf("\nSuccesfully read from ROM, contents:\n");
+		i = 0x00;
+		j = 0x00;
+		while (lastNonZero > 0) {
+			if (i % 0x10 == 0) {
+				printf(" ");
+			}
+			if (i % 0x20 == 0) {
+				printf("\n");
+			}
+			printf("%02x ", rom[j][i]);
 
-	// Executing
-	printf("\n\nexecuting...\n");
-	fflush(stdout);
+			i++;
+			if (i == 0) {
+				j++;
+
+			}
+			lastNonZero--;
+		}
+
+		// Executing
+		printf("\n\nexecuting...\n");
+		fflush(stdout);
+	#endif
 
 	int go = 1;
 	char error[1024] = "\0";
