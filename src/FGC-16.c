@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 
-// Instructions:
+// Instructions (see README.md for datasheet):
 
 #define LDA_IM  0x02
 #define LDA_LOC 0x22
@@ -951,6 +951,11 @@ int main() {
 	return EXIT_SUCCESS;
 }
 
+/*
+ * Loads a byte from the memory address specified by a and b into destination. Permission signifies if it's code
+ * or the processor that is performing this operation.
+ */
+
 int load(unsigned char* dest, unsigned char a, unsigned char b, int permission) {
 	if (permission != SYS && permission != PROG) {
 		return 1;
@@ -993,6 +998,10 @@ int load(unsigned char* dest, unsigned char a, unsigned char b, int permission) 
 	return 1;
 }
 
+/*
+ * Loads the next 2 bytes pointed to by the pointer register into the address register.
+ */
+
 int loadAdr() {
 	if (load(&adrA, ptA, ptB, SYS)) return 1;
 	inc(&ptA, &ptB);
@@ -1002,6 +1011,11 @@ int loadAdr() {
 
 	return 0;
 }
+
+/*
+ * Stores a byte from the origin in the memory address specified by a and b. Permission signifies if it's code
+ * or the processor that is performing this operation.
+ */
 
 int store(unsigned char origin, unsigned char a, unsigned char b, int permission) {
 	if (permission != SYS && permission != PROG) {
@@ -1095,11 +1109,19 @@ int store(unsigned char origin, unsigned char a, unsigned char b, int permission
 
 }
 
+/*
+ * Increments a 2 byte number
+ */
+
 void inc(unsigned char* a, unsigned char* b) {
 	if (++(*b) == 0) {
 		(*a)++;
 	}
 }
+
+/*
+ * Adds together a pair of 2 byte numbers
+ */
 
 void plus(unsigned char aA, unsigned char aB, unsigned char bA, unsigned char bB,
 		unsigned char* resultA, unsigned char* resultB) {
@@ -1109,6 +1131,10 @@ void plus(unsigned char aA, unsigned char aB, unsigned char bA, unsigned char bB
 		(*resultA)++;
 	}
 }
+
+/*
+ * Adds the number b to the A register
+ */
 
 void add(unsigned char* b) {
 	int original = a;
@@ -1122,6 +1148,10 @@ void add(unsigned char* b) {
 	}
 }
 
+/*
+ * Subtracts the number b from the A register
+ */
+
 void sub(unsigned char* b) {
 	int original = a;
 	a -= *b;
@@ -1133,6 +1163,12 @@ void sub(unsigned char* b) {
 		flg = POS;
 	}
 }
+
+/*
+ * Jumps to the location stored in the address register if the flags register matches the provided comparison.
+ * depth specifies whether it's a basic "location" jump or a pointer jump and stack is whether or not the location
+ * immediately after the jump should be saved to the stack.
+ */
 
 int conditionalJump(unsigned char comparison, unsigned char depth, unsigned char stack) {
 	if (flg == comparison || comparison == 0xff) {
@@ -1151,6 +1187,10 @@ int conditionalJump(unsigned char comparison, unsigned char depth, unsigned char
 	return 0;
 }
 
+/*
+ * Jumps to the next 2 bytes pointed to by the pointer register as the location to jump to.
+ */
+
 int jumpLOC() {
 	if (load(&tmpA, ptA, ptB, PROG)) return 1;
 	inc(&ptA, &ptB);
@@ -1160,6 +1200,11 @@ int jumpLOC() {
 	ptB = relativeAddressB(tmpB);
 	return 0;
 }
+
+/*
+ * Looks at the next 2 bytes pointed to by the pointer register as the location to for another
+ * 2 bytes which is then used as the location to jump to.
+ */
 
 int jumpPT() {
 	if (loadAdr()) return 1;
@@ -1175,6 +1220,11 @@ int jumpPT() {
 	ptB = relativeAddressBP(tmpB, tmpD);
 	return 0;
 }
+
+/*
+ * Saves the address that's 2 addresses after the current address pointed to by the pointer register.
+ * Used for JMS commands.
+ */
 
 int saveToStack() {
 	tmpA = ptA;
@@ -1195,19 +1245,41 @@ int saveToStack() {
 	return 1;
 }
 
+/*
+ * Converts a relative address specified by a and b into the a portion of an absolute address if the rel
+ * register's REL bit is set
+ */
+
 unsigned char relativeAddressA(unsigned char a, unsigned char b) {
 	// relativeAddressB() < adrB returns 1 when the B byte overflows
+	// comA is the a location of the command.
 	return a + ((rel & 0b00000001) * ((relativeAddressB(b) < b) + comA));
 }
 
+/*
+ * Converts a relative address specified by b into the b portion of an absolute address if the rel register's
+ * REL bit is set.
+ */
+
 unsigned char relativeAddressB(unsigned char b) {
+	// comB is the b location of the command.
 	return b + (rel & 0b00000001) * comB;
 }
+
+/*
+ * Converts a relative pointer address specified by a and b into the a portion of an absolute address if the rel
+ * register's REP bit is set. orgA and orgB is the original location of the pointer (not where it's pointing to)
+ */
 
 unsigned char relativeAddressAP(unsigned char a, unsigned char b, unsigned char orgA, unsigned char orgB) {
 	// relativeAddressB() < adrB returns 1 when the B byte overflows
 	return a + (((rel & 0b00000010) >> 1) * ((relativeAddressBP(b, orgB) < b) + orgA));
 }
+
+/*
+ * Converts a relative pointer address specified by b into the b portion of an absolute address if the rel register's
+ * REP bit is set. orgB the b part of the original location of the pointer (not where it's pointing to)
+ */
 
 unsigned char relativeAddressBP(unsigned char b, unsigned char orgB) {
 	return b + ((rel & 0b00000010) >> 1) * orgB;

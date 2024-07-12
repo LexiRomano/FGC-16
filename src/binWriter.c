@@ -8,11 +8,15 @@ int main() {
 	printf("**At any point, enter an invalid character to finish and return to main menu**\n");
 	char file, input;
 
+	// Main loop
 	while (1) {
+
+		// "Main menu"
 		printf("\n  Manual mode or batch mode? (M/B)\n\n->");
 		fflush(stdout);
 		fflush(stdin);
 		scanf("%c", &input);
+
 		if (input == 'b' || input == 'B') {
 			// Batch mode
 
@@ -33,11 +37,14 @@ int main() {
 			} else {
 				char disk[2];
 				unsigned char sector;
-				int format = 0;
+				int format;
 				printf("\n");
+
+				// For every line in the batch file
 				while (1) {
 					// Read disk and sector info
 					if (!fread(disk, 1, 1, batchFile) || !fread(&sector, 1, 1, batchFile)) {
+						// Reached EOF
 						printf("\n  Succesfully executed batch file!\n");
 						break;
 					}
@@ -46,8 +53,9 @@ int main() {
 					if (disk[0] == 114) {
 						// Rom
 						isRom = 1;
-					} else if (!(((disk[0] >= 48 && disk[0] <= 57) || (disk[0] >= 97 && disk[0] <= 102)) &&
-							((sector >= 48 && sector <= 57) || (sector >= 97 && sector <= 102) || sector == 'x'))) {
+					} else if (!(((disk[0] >= '0' && disk[0] <= '9') || (disk[0] >= 'a' && disk[0] <= 'f')) &&
+							((sector >= '0' && sector <= '9') || (sector >= 'a' && sector <= 'f') || sector == 'x'))) {
+						// Validating disk and sector formatting
 						printf("\n  Invalid disk/sector format!\n");
 						break;
 					}
@@ -63,19 +71,18 @@ int main() {
 						sector = 0;
 					}
 
-
 					char targetDiskPath[100];
 
 					if (isRom) {
 						strcpy(targetDiskPath, ".\\data\\r.rom");
 					} else {
 						strcpy(targetDiskPath, ".\\data\\");
-						disk[1] = 0;
+						disk[1] = '\0';
 						strcat(targetDiskPath, disk);
 						strcat(targetDiskPath, ".dsk");
 					}
 
-					FILE* targetDisk = NULL;
+					FILE* targetDisk;
 
 					if (format) {
 						targetDisk = fopen(targetDiskPath, "wb");
@@ -90,10 +97,11 @@ int main() {
 					}
 
 					if (!format) {
-						char behave[2];
-						behave[1] = 0;
-						memset(behave, sector, 1);
-						fseek(targetDisk, strtol(behave, NULL, 16) * 0x1000, SEEK_SET);
+						char tmpStringBuffer[2]; // So that we can use strtol to convert hex ascii to an int
+						tmpStringBuffer[1] = '\0';
+						memset(tmpStringBuffer, sector, 1);
+
+						fseek(targetDisk, strtol(tmpStringBuffer, NULL, 16) * 0x1000, SEEK_SET);
 					}
 
 
@@ -110,16 +118,19 @@ int main() {
 					int scanResult = 0;
 					int doneBreak = 1;
 					unsigned char nothing = 0;
+					// Filling the targetfile
 					for (int i = 0; (isRom && i < 0x4000) || (!isRom &&
 							((!format && i < 0x1000) || (format && i < 0x10000))); i++) {
 						if (doneBreak && !lastFile && !format) {
 							doneBreak = 0;
 							// Find next source file
 							fscanf(batchFile, "%s", sourceFilePath);
+
+							// Checking to see if we just loaded the last file for the target
 							for (int j = 0; j < 100; j++) {
 								if (sourceFilePath[j] == ';') {
 									// Last file!
-									sourceFilePath[j] = 0;
+									sourceFilePath[j] = '\0';
 									lastFile = 1;
 									fscanf(batchFile, "%c", &c); // Reading through the \n at EOL
 									break;
@@ -142,12 +153,13 @@ int main() {
 						}
 
 						if (invalidBreak || fileErrorBreak || doneBreak || format) {
+							// If something went wrong or we're formatting, we want to finish writing all 0's
 							fwrite(&nothing, 1, 1, targetDisk);
 						} else {
 							scanResult = fscanf(sourceFile, "%x", &buffer);
 							if (scanResult == EOF) {
 								doneBreak = 1;
-								i--;
+								i--; // nothing was written, so take back the for loop's increment
 							} else if (scanResult != 0 && (buffer >= 0 && buffer <= 255)) {
 								c = buffer;
 								fwrite(&c, 1, 1, targetDisk);
@@ -208,8 +220,7 @@ int main() {
 				}
 
 				fclose(f);
-			} else if ((file >= 48 && file <= 57) || (file >= 97 && file <= 102)){
-				//      0-9                           a-f
+			} else if ((file >= '0' && file <= '9') || (file >= 'a' && file <= 'f')) {
 				//disk
 				char diskIdChar[1];
 				char path[100];
@@ -219,8 +230,8 @@ int main() {
 				strcat(path, ".dsk");
 
 				printf("\n  What would you like to do with disk %c? \n\n"
-						"  Format:         x\n"
-						"  Rewrite sector: 0, 1 ... e, f\n\n->", file);
+						 "  Format:         x\n"
+						 "  Rewrite sector: 0, 1 ... e, f\n\n->", file);
 
 				fflush(stdout);
 				fflush(stdin);
@@ -238,8 +249,7 @@ int main() {
 
 					printf("\n  Disk formatting complete!\n");
 					fflush(stdout);
-				} else if ((sector >= 48 && sector <= 57) || (sector >= 97 && sector <= 102)) {
-					//      0-9                               a-f
+				} else if ((sector >= '0' && sector <= '9') || (sector >= 'a' && sector <= 'f')) {
 					//sector
 					binInfo();
 					FILE* f = fopen(path, "rb+");
@@ -297,7 +307,7 @@ int main() {
 }
 
 int binInfo() {
-	printf("\n  Binary writer: input hexadecimal numbers (lowercase, no leading 0x, from 00 to FF)\n");
+	printf("\n  Binary writer: input hexadecimal numbers (no leading 0x, from 00 to FF)\n");
 	printf("  Enter a non-hex letter to exit\n\n->");
 	fflush(stdout);
 	return 0;
