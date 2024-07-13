@@ -170,25 +170,34 @@ int main() {
 						}
 					}
 
+					fclose(targetDisk);
+
+					if (fileErrorBreak) {
+						printf("\n  Source file not found!\n");
+						if (sourceFile != NULL) {
+							fclose(sourceFile);
+						}
+						break;
+					}
+
+					if (invalidBreak) {
+						printf("\n  Invalid character found in a source file!\n");
+						if (sourceFile != NULL) {
+							fclose(sourceFile);
+						}
+						break;
+					}
+
 					if (!doneBreak && (fscanf(sourceFile, "%x", &buffer) != EOF || !lastFile) && !format) {
 						printf("\n  File size limit exceded!\n");
+						if (sourceFile != NULL) {
+							fclose(sourceFile);
+						}
 						break;
 					}
-
-					if (invalidBreak && !format) {
-						printf("\n  Invalid character found in a source file!\n");
-						break;
-					}
-					if (fileErrorBreak && !format) {
-						printf("\n  Source file not found!\n");
-						break;
-					}
-
 					if (sourceFile != NULL) {
 						fclose(sourceFile);
 					}
-					fclose(targetDisk);
-
 				}
 			}
 
