@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <conio.h>
 
 // Instructions (see README.md for datasheet):
 
@@ -94,6 +95,15 @@
 #define REL     0x01
 #define REP     0x81
 
+#define PIN     0x35
+#define RIN     0x55
+#define CIN     0x75
+
+#define TGI_IM  0x06
+#define TGI_LOC 0x26
+#define TGI_X   0x46
+#define TGI_LOX 0x66
+#define TGI_P   0x86
 
 #define SYS     0
 #define PROG    1
@@ -111,6 +121,8 @@
 
 #define STACK_A_OFFSET 0x40
 #define STACK_SIZE     0x20
+
+#define KEYBOARD_INTERRUPT 0x03
 
 int load(unsigned char* dest, unsigned char a, unsigned char b, int permission);
 #define LOAD(dest,a,b,per) if (load(dest, a, b, per)) {go = 0; strcpy(error, "Load permission error"); break;}
@@ -139,6 +151,12 @@ unsigned char relativeAddressB(unsigned char b);
 unsigned char relativeAddressAP(unsigned char a, unsigned char b, unsigned char orgA, unsigned char orgB);
 unsigned char relativeAddressBP(unsigned char b, unsigned char orgB);
 
+int queue_interrupt(unsigned char type, unsigned char id);
+#define QUEUE_INTERRUPT(type, id) if (queue_interrupt(type, id)) {go = 0; strcpy(error, "Interrupt queue error"); break;}
+
+int trigger_interrupt();
+#define TRIGGER_INTERRUPT() if (trigger_interrupt()) {go = 0; strcpy(error, "Interrupt trigger error"); break;}
+
 int jumpLOC();
 int jumpPT();
 int saveToStack();
@@ -150,7 +168,7 @@ int saveToStack();
 // Flags register: X, X, X, X, OVF, POS, ZER, NEG
 // Relative register: X, X, X, X, X, X, REP, REL
 unsigned char a, xA, xB, ptA, ptB, ins, adrA, adrB, flg, stA, stB, tmpA, tmpB, tmpC, tmpD,
-																	rel, comA, comB = 0x00;
+																	rel, comA, comB, inp;
 unsigned char ram[0x100][0x100];
 unsigned char rom[0x40][0x100];
 
@@ -163,7 +181,8 @@ int main() {
 	// Reading ROM
 	FILE* romFile = fopen(".\\data\\r.rom", "rb");
 
-	unsigned char i, j = 0x00;
+	unsigned char i = 0x00;
+	unsigned char j = 0x00;
 	#ifdef DEBUG_MODE
 		int count = 0;
 		int lastNonZero = 0;
@@ -213,6 +232,12 @@ int main() {
 
 	int go = 1;
 	char error[1024] = "\0";
+
+	// Initializing interrupt queue pointers
+	ram[0x77][0xFC] = 0x78;
+	ram[0x77][0xFE] = 0x78;
+
+
 	while (go) {
 
 		// Keeping track of the original command location (for relative stuff)
@@ -523,6 +548,13 @@ int main() {
 			break;
 
 		case BLT:
+			if (a == 0) {
+				flg = ZRO;
+			} else if (a < 0x80) {
+				flg = POS;
+			} else {
+				flg = OVF;
+			}
 			a = a << 1;
 			break;
 
@@ -530,12 +562,25 @@ int main() {
 			if (a >= 0x80) {
 				a = a << 1;
 				a += 1;
+				flg = OVF;
 			} else {
 				a = a << 1;
+				if (a == 0) {
+					flg = ZRO;
+				} else {
+					flg = POS;
+				}
 			}
 			break;
 
 		case BRT:
+			if (a == 0) {
+				flg = ZRO;
+			} else if (a % 2 == 1) {
+				flg = NEG;
+			} else {
+				flg = POS;
+			}
 			a = a >> 1;
 			break;
 
@@ -543,8 +588,14 @@ int main() {
 			if (a % 2 == 1) {
 				a = a >> 1;
 				a += 0x80;
+				flg = NEG;
 			} else {
 				a = a >> 1;
+				if (a == 0) {
+					flg = ZRO;
+				} else {
+					flg = POS;
+				}
 			}
 			break;
 
@@ -902,6 +953,17 @@ int main() {
 		case JOV_PTS:
 			CONDITIONALJUMP(OVF, PT, Y);
 			break;
+		case PIN:
+			inp = 1;
+			break;
+
+		case RIN:
+			inp = 0;
+			break;
+
+		case CIN:
+			inp = 0;
+			// Intentionally no break since we want to do an RFS after a CIN
 		case RFS:
 			if (stA == 0x00 && stB == 0x00) {
 				strcpy(error, "Stack underflow error");
@@ -918,24 +980,100 @@ int main() {
 			}
 			LOAD(&ptA, stA + STACK_A_OFFSET, stB, SYS);
 			break;
+
+		case TGI_IM:
+			LOAD(&tmpA, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+
+			LOAD(&tmpB, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+
+			QUEUE_INTERRUPT(tmpA, tmpB);
+			break;
+
+		case TGI_LOC:
+			LOADADR();
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+			LOAD(&tmpB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+
+			QUEUE_INTERRUPT(tmpA, tmpB);
+			break;
+
+		case TGI_X:
+			tmpA = xA;
+			tmpB = xB;
+			LOAD(&tmpC, relativeAddressA(tmpA, tmpB), relativeAddressB(tmpB), PROG);
+			inc(&tmpA, &tmpB);
+			LOAD(&tmpD, relativeAddressA(tmpA, tmpB), relativeAddressB(tmpB), PROG);
+
+			QUEUE_INTERRUPT(tmpC, tmpD);
+			break;
+
+		case TGI_LOX:
+			LOADADR();
+
+			plus(adrA, adrB, xA, xB, &tmpA, &tmpB);
+
+			LOAD(&tmpC, relativeAddressA(tmpA, tmpB), relativeAddressB(tmpB), PROG);
+			inc(&tmpA, &tmpB);
+			LOAD(&tmpD, relativeAddressA(tmpA, tmpB), relativeAddressB(tmpB), PROG);
+
+			QUEUE_INTERRUPT(tmpC, tmpD);
+			break;
+
+		case TGI_P:
+			LOADADR();
+
+			tmpC = relativeAddressA(adrA, adrB);
+			tmpD = relativeAddressB(adrB);
+
+			LOAD(&tmpA, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			adrA = tmpA;
+
+			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&tmpA, relativeAddressAP(adrA, adrB, tmpC, tmpD), relativeAddressBP(adrB, tmpD), PROG);
+
+			QUEUE_INTERRUPT(tmpA, tmpB);
+			break;
+
 		case NOP:
 			break;
+
 		case REL:
 			rel = rel | 0b00000001;
 			break;
+
 		case REP:
 			rel = rel | 0b00000010;
 			break;
+
 		case SHD:
 			go = 0;
 			break;
+
 		default:
 			go = 0;
 			strcpy(error, "Invalid Command");
 		}
+
+		// Reseting the REL register
 		if (ins != REP && ins != REL) {
 			rel = 0;
 		}
+
+		// Handling keyboard interrupts
+		if (kbhit()) {
+			QUEUE_INTERRUPT(KEYBOARD_INTERRUPT, getch());
+		} else if (inp == 0 && rel == 0) {
+			TRIGGER_INTERRUPT();
+		}
+
 		#ifdef DEBUG_MODE
 			if (go) debug();
 		#endif
@@ -965,27 +1103,29 @@ int load(unsigned char* dest, unsigned char a, unsigned char b, int permission) 
 		//Ram
 		*dest = ram[a][b];
 		return 0;
-	} else if (a == 0x60 && (b >= 0x00 && b <= 0x05)) {
-		//I/O Port
-		switch (b) {
-		case 0x01:
-			*dest = ioBuffer[ioBufferPt++];
-			if (ioBuffer[ioBufferPt] == '\0') {
-				ram[0x60][0x02] = 0x00; //EOF, No data waiting
+	} else if (a >= 0x70 && a <= 0x7F) {
+		//Interrupts
+		if ((a == 0x77 && b >= 0xFC) || a >= 0x78) {
+			// interrupt queue
+			if (permission == SYS) {
+				*dest = ram[a][b];
+				return 0;
 			}
-			break;
-		case 0x02:
-			*dest = ram[0x60][0x02];
-			break;
-		case 0x05:
-			*dest = dskB;
-			break;
-		case 0x00:
-		case 0x03:
-		case 0x04:
 			return 1;
 		}
-		return 0;
+		if ((a == 0x70 && (b == 0x00 || b == 0x01)) || a == 0x71 || a == 0x72) {
+			// current interrupt/handle pointers
+			*dest = ram[a][b];
+			return 0;
+		}
+		return 1;
+	} else if (a == 0x60 && (b >= 0x00 && b <= 0x02)) {
+		//I/O Port
+		if (b == 0x02) {
+			*dest = dskB;
+			return 0;
+		}
+		return 1;
 	} else if (a < 0x40) {
 		//Rom
 		*dest = rom[a][b];
@@ -1026,7 +1166,23 @@ int store(unsigned char origin, unsigned char a, unsigned char b, int permission
 		//Ram
 		ram[a][b] = origin;
 		return 0;
-	} else if (a == 0x60 && (b >= 0x00 && b <= 0x05)) {
+	} else if (a >= 0x70 && a <= 0x7F) {
+		//Interrupts
+		if (permission == PROG) {
+			// PROG is only allowed to write to the handle pointers
+			if (a == 0x71 || a ==0x72) {
+				ram[a][b] = origin;
+				return 0;
+			}
+			return 1;
+		}
+		if ((a == 0x70 && b > 0x01) || (a >= 0x73 && a <= 0x76) || (a == 0x77 && b < 0xFC)) {
+			// Unused addresses
+			return 1;
+		}
+		ram[a][b] = origin;
+		return 0;
+	} else if (a == 0x60 && (b >= 0x00 && b <= 0x02)) {
 		//I/O Port
 		switch (b) {
 		case 0x00:
@@ -1037,23 +1193,7 @@ int store(unsigned char origin, unsigned char a, unsigned char b, int permission
 			}
 			fflush(stdout);
 			break;
-		case 0x03:
-			if (origin == 0x01) {
-				//Read
-				for (int i = 0; i < 0x100; i++) {
-					ioBuffer[i] = 0;
-				}
-				scanf("%[^\n]", ioBuffer);
-				ioBufferPt = 0x00;
-				fflush(stdin);
-				ram[0x60][0x02] = 0x01; //Data waiting
-			} else if (origin == 0xFF) {
-				//Clear
-				system("cls");
-				fflush(stdout);
-			}
-			break;
-		case 0x04:
+		case 0x01:
 			; //Yes, this semicolon is important. No, I'm not happy about it.
 			unsigned char rw, ramSec, diskId, diskSec;
 			rw = origin / 0x80;
@@ -1091,12 +1231,9 @@ int store(unsigned char origin, unsigned char a, unsigned char b, int permission
 			fclose(disk);
 
 			break;
-		case 0x05:
+		case 0x02:
 			dskB = origin;
 			break;
-		case 0x01:
-		case 0x02:
-			return 1;
 		}
 
 		return 0;
@@ -1284,6 +1421,84 @@ unsigned char relativeAddressAP(unsigned char a, unsigned char b, unsigned char 
 unsigned char relativeAddressBP(unsigned char b, unsigned char orgB) {
 	return b + ((rel & 0b00000010) >> 1) * orgB;
 }
+
+/*
+ * Adds an interrupt to the queue and attempts to trigger the next in queue if possible.
+ */
+
+int queue_interrupt(unsigned char type, unsigned char id) {
+	unsigned char qha, qhb;
+	if (load(&qha, 0x77, 0xFC, SYS)) return 1;
+	if (load(&qhb, 0x77, 0xFD, SYS)) return 1;
+	if (store(type, qha, qhb, SYS)) return 1;
+	inc(&qha, &qhb);
+	if (qha >= 0x80) qha = 0x78;
+
+	if (store(id, qha, qhb, SYS)) return 1;
+	inc(&qha, &qhb);
+	if (qha >= 0x80) qha = 0x78;
+
+	if (store(qha, 0x77, 0xFC, SYS)) return 1;
+	if (store(qhb, 0x77, 0xFD, SYS)) return 1;
+
+	if (inp == 0 && rel == 0) {
+		return trigger_interrupt();
+	}
+	return 0;
+
+}
+
+/*
+ * If the queue head and queue tail aren't pointing to the same location, the next interrupt will
+ * be triggered and the queue tail moved up.
+ */
+
+int trigger_interrupt() {
+	unsigned char qha, qhb, qta, qtb;
+	if (load(&qha, 0x77, 0xFC, SYS)) return 1;
+	if (load(&qhb, 0x77, 0xFD, SYS)) return 1;
+	if (load(&qta, 0x77, 0xFE, SYS)) return 1;
+	if (load(&qtb, 0x77, 0xFF, SYS)) return 1;
+
+	// Only interrupt if there's something in the queue
+	if (qha != qta || qhb != qtb) {
+		if (stA != STACK_SIZE) {
+			// Save original place to the stack
+			if (store(ptA, stA + STACK_A_OFFSET, stB, SYS)) return 1;
+			inc(&stA, &stB);
+
+			if (store(ptB, stA + STACK_A_OFFSET, stB, SYS)) return 1;
+			inc(&stA, &stB);
+
+			// Get the interrupt, store it in the active interrupt spot, and move up the tail pointer
+			if (load(&tmpA, qta, qtb, SYS)) return 1;
+			inc(&qta, &qtb);
+			if (qta >= 0x80) qta = 0x78;
+
+			if (load(&tmpB, qta, qtb, SYS)) return 1;
+			inc(&qta, &qtb);
+			if (qta >= 0x80) qta = 0x78;
+
+
+
+			if (store(tmpA, 0x70, 0x00, SYS)) return 1;
+			if (store(tmpB, 0x70, 0x01, SYS)) return 1;
+			if (store(qta, 0x77, 0xFE, SYS)) return 1;
+			if (store(qtb, 0x77, 0xFF, SYS)) return 1;
+
+			// Jump to the handle pointer
+			if (load(&ptA, 0x71, tmpA, SYS)) return 1;
+			if (load(&ptB, 0x72, tmpA, SYS)) return 1;
+
+			inp = 1;
+
+			return 0;
+		}
+		return 1;
+	}
+	return 0;
+}
+
 
 #ifdef DEBUG_MODE
 	void debug() {
