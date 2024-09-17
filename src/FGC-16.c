@@ -105,6 +105,13 @@
 #define TGI_LOX 0x66
 #define TGI_P   0x86
 
+#define FAA_IM  0x16
+#define FAA_LOC 0x36
+#define FAA_X   0x56
+#define FAA_LOX 0x76
+#define FAA_P   0x96
+#define FAA_PNP 0xB6
+
 #define SYS     0
 #define PROG    1
 
@@ -1041,6 +1048,72 @@ int main() {
 
 			QUEUE_INTERRUPT(tmpA, tmpB);
 			break;
+
+		case FAA_IM:
+			xA = adrA;
+			xB = adrB;
+			// Decrement to get the address of the command
+			if (--xB == 0xFF) {
+				xA--;
+			}
+			break;
+
+		case FAA_LOC:
+			LOADADR();
+
+			xA = relativeAddressA(adrA, adrB);
+			xB = relativeAddressB(adrB);
+			break;
+
+		case FAA_X:
+			tmpA = xA;
+			tmpB = xB;
+			xA = relativeAddressA(xA, xB);
+			xB = relativeAddressB(xB);
+			break;
+
+		case FAA_LOX:
+			LOADADR();
+
+			plus(xA,xB, adrA, adrB, &tmpA, &tmpB);
+			xA = relativeAddressA(tmpA, tmpB);
+			xB = relativeAddressB(tmpB);
+			break;
+
+		case FAA_P:
+			LOADADR();
+			tmpA = adrA;
+			tmpB = adrB;
+
+			LOAD(&tmpC, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			adrA = tmpC;
+
+			xA = relativeAddressAP(adrA, adrB, tmpA, tmpB);
+			xB = relativeAddressBP(adrB, tmpB);
+			break;
+
+		case FAA_PNP:
+			LOADADR();
+			tmpA = adrA;
+			tmpB = adrB;
+
+			LOAD(&tmpC, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			inc(&adrA, &adrB);
+
+			LOAD(&adrB, relativeAddressA(adrA, adrB), relativeAddressB(adrB), PROG);
+			adrA = tmpC;
+
+			LOAD(&tmpC, ptA, ptB, PROG);
+			inc(&ptA, &ptB);
+
+			plus(adrA, adrB, 0, tmpA, &adrA, &adrB);
+
+			xA = relativeAddressAP(adrA, adrB, tmpA, tmpB);
+			xB = relativeAddressBP(adrB, tmpB);
+			 break;
 
 		case NOP:
 			break;
