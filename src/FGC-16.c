@@ -1,8 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <conio.h>
+#include <windows.h>
+
+// This isn't actually in windows.h because screw you I guess :/
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 
 // Instructions (see README.md for datasheet):
 
@@ -243,6 +246,12 @@ int main() {
 	// Initializing interrupt queue pointers
 	ram[0x77][0xFC] = 0x78;
 	ram[0x77][0xFE] = 0x78;
+
+	// Allow ANSI escape on windows 10
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD mode = 0;
+	GetConsoleMode(hConsole, &mode); //
+	SetConsoleMode(hConsole, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 
 
 	while (go) {
